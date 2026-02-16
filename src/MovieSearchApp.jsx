@@ -14,12 +14,11 @@ function MovieSearchApp() {
   const [isSearching, setIsSearching] = useState(false);
   const [theme, setTheme] = useState('dark');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [sortBy, setSortBy] = useState('relevance'); 
+  const [viewMode, setViewMode] = useState('grid'); 
   
-  // Refs
   const debounceTimer = useRef(null);
   const searchCache = useRef({});
-  
-  // NEW: More robust tracking
   const activeSearchRequest = useRef(null);
   const activeSuggestionRequest = useRef(null);
   const lastSuggestionTerm = useRef('');
@@ -60,17 +59,13 @@ function MovieSearchApp() {
       setSuggestions([]);
       setShowSuggestions(false);
       lastSuggestionTerm.current = '';
-      
-      // Cancel ongoing suggestion request
       if (activeSuggestionRequest.current) {
         activeSuggestionRequest.current = null;
       }
     }
   }, [searchTerm]);
 
-  // CRITICAL FIX: Check inside debounce callback
   const debouncedSearch = useCallback((term) => {
-    // Clear existing timer
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
@@ -84,25 +79,19 @@ function MovieSearchApp() {
 
     const normalizedTerm = term.toLowerCase().trim();
     
-    // Set new timer
     debounceTimer.current = setTimeout(() => {
-      // CRITICAL: Check if this term was already requested
       if (normalizedTerm === lastSuggestionTerm.current) {
-        console.log('⏭️ Skipping duplicate suggestion request:', normalizedTerm);
         return;
       }
       
-      // Check cache before calling API
       const cacheKey = `suggestions_${normalizedTerm}`;
       if (searchCache.current[cacheKey]) {
-        console.log('📦 Suggestions from cache:', cacheKey);
         setSuggestions(searchCache.current[cacheKey]);
         setShowSuggestions(true);
         lastSuggestionTerm.current = normalizedTerm;
         return;
       }
       
-      // Only fetch if not already fetching
       if (activeSuggestionRequest.current !== normalizedTerm) {
         fetchSuggestions(term);
       }
@@ -113,35 +102,26 @@ function MovieSearchApp() {
     const normalizedTerm = term.toLowerCase().trim();
     const cacheKey = `suggestions_${normalizedTerm}`;
     
-    // Double-check: already fetching this?
     if (activeSuggestionRequest.current === normalizedTerm) {
-      console.log('⏸️ Suggestion already being fetched:', normalizedTerm);
       return;
     }
     
-    // Mark as active BEFORE any async operation
     activeSuggestionRequest.current = normalizedTerm;
     lastSuggestionTerm.current = normalizedTerm;
-    
     setIsSearching(true);
     const API_KEY = "894809ee";
     
     try {
-      console.log('🔍 Fetching suggestions:', cacheKey);
       const response = await fetch(
         `https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(term)}&page=1`
       );
-      
       const data = await response.json();
 
-      // Check if this request is still relevant
       if (activeSuggestionRequest.current !== normalizedTerm) {
-        console.log('🚫 Suggestion request outdated, discarding');
         return;
       }
 
       if (data.Response === 'True') {
-        // Remove duplicates
         const uniqueMovies = [];
         const seenIds = new Set();
         
@@ -155,20 +135,16 @@ function MovieSearchApp() {
         const topSuggestions = uniqueMovies.slice(0, 5);
         setSuggestions(topSuggestions);
         setShowSuggestions(true);
-        
-        // Cache results
         searchCache.current[cacheKey] = topSuggestions;
-        console.log('✅ Suggestions cached:', cacheKey);
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
       }
     } catch (error) {
-      console.error('❌ Error fetching suggestions:', error);
+      console.error('Error fetching suggestions:', error);
       setSuggestions([]);
     } finally {
       setIsSearching(false);
-      // Clear active request
       if (activeSuggestionRequest.current === normalizedTerm) {
         activeSuggestionRequest.current = null;
       }
@@ -193,15 +169,11 @@ function MovieSearchApp() {
     const normalizedTerm = term.toLowerCase().trim();
     const searchKey = `${normalizedTerm}_page${page}`;
     
-    // Check if already searching
     if (activeSearchRequest.current === searchKey) {
-      console.log('⏸️ Search already in progress:', searchKey);
       return;
     }
     
-    // Check cache
     if (searchCache.current[searchKey]) {
-      console.log('📦 Search from cache:', searchKey);
       const cachedData = searchCache.current[searchKey];
       setMovies(cachedData.movies);
       setTotalResults(cachedData.totalResults);
@@ -210,27 +182,20 @@ function MovieSearchApp() {
       return;
     }
 
-    // Mark as active BEFORE async operation
     activeSearchRequest.current = searchKey;
-    
     const API_KEY = "894809ee";
     
     try {
-      console.log('🔍 Making API call:', searchKey);
       const response = await fetch(
         `https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(term)}&page=${page}`
       );
-      
       const data = await response.json();
 
-      // Check if still relevant
       if (activeSearchRequest.current !== searchKey) {
-        console.log('🚫 Search request outdated, discarding');
         return;
       }
 
       if (data.Response === 'True') {
-        // Remove duplicates
         const uniqueMovies = [];
         const seenIds = new Set();
         
@@ -246,17 +211,14 @@ function MovieSearchApp() {
         setCurrentPage(page);
         setShowFavorites(false);
         
-        // Cache results
         searchCache.current[searchKey] = {
           movies: uniqueMovies,
           totalResults: parseInt(data.totalResults)
         };
-        console.log('✅ Search cached:', searchKey);
       }
     } catch (error) {
-      console.error('❌ Error searching movies:', error);
+      console.error('Error searching movies:', error);
     } finally {
-      // Clear active request
       if (activeSearchRequest.current === searchKey) {
         activeSearchRequest.current = null;
       }
@@ -275,15 +237,11 @@ function MovieSearchApp() {
     const normalizedTerm = searchTerm.toLowerCase().trim();
     const searchKey = `${normalizedTerm}_page${page}`;
     
-    // Check if already searching
     if (activeSearchRequest.current === searchKey) {
-      console.log('⏸️ Search already in progress:', searchKey);
       return;
     }
     
-    // Check cache
     if (searchCache.current[searchKey]) {
-      console.log('📦 Search from cache:', searchKey);
       const cachedData = searchCache.current[searchKey];
       setMovies(cachedData.movies);
       setTotalResults(cachedData.totalResults);
@@ -293,28 +251,21 @@ function MovieSearchApp() {
       return;
     }
 
-    // Mark as active
     activeSearchRequest.current = searchKey;
-    
     const API_KEY = "894809ee";
     localStorage.setItem('lastSearchTerm', searchTerm);
     
     try {
-      console.log('🔍 Making API call:', searchKey);
       const response = await fetch(
         `https://www.omdbapi.com/?apikey=${API_KEY}&s=${encodeURIComponent(searchTerm)}&page=${page}`
       );
-      
       const data = await response.json();
 
-      // Check if still relevant
       if (activeSearchRequest.current !== searchKey) {
-        console.log('🚫 Search request outdated, discarding');
         return;
       }
 
       if (data.Response === 'True') {
-        // Remove duplicates
         const uniqueMovies = [];
         const seenIds = new Set();
         
@@ -330,21 +281,18 @@ function MovieSearchApp() {
         setCurrentPage(page);
         setShowFavorites(false);
         
-        // Cache results
         searchCache.current[searchKey] = {
           movies: uniqueMovies,
           totalResults: parseInt(data.totalResults)
         };
-        console.log('✅ Search cached:', searchKey);
       } else {
         alert("No Movies Found!");
         setMovies([]);
       }
     } catch (error) {
-      console.error('❌ Error searching movies:', error);
+      console.error('Error searching movies:', error);
       alert("Error searching movies. Please try again.");
     } finally {
-      // Clear active request
       if (activeSearchRequest.current === searchKey) {
         activeSearchRequest.current = null;
       }
@@ -355,23 +303,20 @@ function MovieSearchApp() {
     const cacheKey = `details_${movieID}`;
     
     if (searchCache.current[cacheKey]) {
-      console.log('📦 Movie details from cache');
       setSelectedMovie(searchCache.current[cacheKey]);
       return;
     }
 
     const API_KEY = '894809ee';
     try {
-      console.log('🔍 Fetching movie details:', movieID);
       const response = await fetch(
         `https://www.omdbapi.com/?apikey=${API_KEY}&i=${movieID}&plot=full`
       );
       const data = await response.json();
       setSelectedMovie(data);
       searchCache.current[cacheKey] = data;
-      console.log('✅ Movie details cached');
     } catch (error) {
-      console.error('❌ Error fetching movie details:', error);
+      console.error('Error fetching movie details:', error);
       alert("Error loading movie details. Please try again.");
     }
   };
@@ -379,12 +324,14 @@ function MovieSearchApp() {
   const goToNextPage = () => {
     if (currentPage < totalPages) {
       handleSearch(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const goToPreviousPage = () => {
     if (currentPage > 1) {
       handleSearch(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -431,15 +378,12 @@ function MovieSearchApp() {
         }
       };
       
-      img.onerror = () => {
-        console.warn('Could not load image');
-        resolve(null);
-      };
-      
+      img.onerror = () => resolve(null);
       img.src = url;
     });
   };
 
+  // FIXED: PDF generation with proper rating format
   const generateMoviePDF = async () => {
     if (!selectedMovie) return;
 
@@ -454,22 +398,26 @@ function MovieSearchApp() {
       const margin = 20;
       let yPosition = margin;
 
+      // Title
       doc.setFontSize(24);
       doc.setTextColor(0, 123, 255);
       const titleLines = doc.splitTextToSize(selectedMovie.Title, pageWidth - 2 * margin);
       doc.text(titleLines, pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += titleLines.length * 10;
+      yPosition += titleLines.length * 10 + 5;
 
+      // Year
       doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
       doc.text(`Released: ${selectedMovie.Year}`, pageWidth / 2, yPosition, { align: 'center' });
       yPosition += 15;
 
+      // Separator line
       doc.setDrawColor(0, 123, 255);
       doc.setLineWidth(0.5);
       doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 10;
+      yPosition += 15;
 
+      // Poster image
       if (selectedMovie.Poster && selectedMovie.Poster !== 'N/A') {
         try {
           const imageData = await loadImageAsBase64(selectedMovie.Poster);
@@ -478,16 +426,17 @@ function MovieSearchApp() {
             const imgHeight = 90;
             const imgX = (pageWidth - imgWidth) / 2;
             doc.addImage(imageData, 'JPEG', imgX, yPosition, imgWidth, imgHeight);
-            yPosition += imgHeight + 15;
+            yPosition += imgHeight + 20;
           }
         } catch (error) {
           console.error('Error adding poster:', error);
         }
       }
 
+   
       doc.setFontSize(11);
       const details = [
-        ['Rating:', `⭐ ${selectedMovie.imdbRating || 'N/A'}/10`],
+        ['Rating:', selectedMovie.imdbRating && selectedMovie.imdbRating !== 'N/A' ? `${selectedMovie.imdbRating}/10 ⭐` : 'Not Rated'],
         ['Genre:', selectedMovie.Genre || 'N/A'],
         ['Runtime:', selectedMovie.Runtime || 'N/A'],
         ['Director:', selectedMovie.Director || 'N/A'],
@@ -501,37 +450,38 @@ function MovieSearchApp() {
         }
 
         doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'bold');
+        doc.setFont('helvetica', 'bold');
         doc.text(label, margin, yPosition);
         
-        doc.setFont(undefined, 'normal');
-        doc.setTextColor(80, 80, 80);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
         const valueLines = doc.splitTextToSize(value, pageWidth - margin * 2 - 40);
         doc.text(valueLines, margin + 40, yPosition);
-        yPosition += Math.max(7, valueLines.length * 7);
+        yPosition += Math.max(8, valueLines.length * 7 + 2);
       });
 
       yPosition += 10;
 
-      if (yPosition > pageHeight - 60) {
+      // Plot section
+      if (yPosition > pageHeight - 70) {
         doc.addPage();
         yPosition = margin;
       }
 
       doc.setFontSize(14);
       doc.setTextColor(0, 123, 255);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text('Plot Summary', margin, yPosition);
       yPosition += 10;
 
       doc.setFontSize(11);
-      doc.setTextColor(80, 80, 80);
-      doc.setFont(undefined, 'normal');
+      doc.setTextColor(40, 40, 40);
+      doc.setFont('helvetica', 'normal');
       const plotText = selectedMovie.Plot || 'No plot available.';
       const plotLines = doc.splitTextToSize(plotText, pageWidth - 2 * margin);
       
       plotLines.forEach((line) => {
-        if (yPosition > pageHeight - margin) {
+        if (yPosition > pageHeight - margin - 10) {
           doc.addPage();
           yPosition = margin;
         }
@@ -539,7 +489,8 @@ function MovieSearchApp() {
         yPosition += 7;
       });
 
-      const footerY = pageHeight - 15;
+      // Footer
+      const footerY = pageHeight - 10;
       doc.setFontSize(9);
       doc.setTextColor(150, 150, 150);
       const currentDate = new Date().toLocaleDateString('en-US', { 
@@ -554,6 +505,7 @@ function MovieSearchApp() {
         { align: 'center' }
       );
 
+      // Save PDF
       const safeTitle = selectedMovie.Title.replace(/[^a-z0-9]/gi, '_');
       doc.save(`${safeTitle}_MovieDetails.pdf`);
 
@@ -563,7 +515,7 @@ function MovieSearchApp() {
     } catch (error) {
       console.error('Error generating PDF:', error);
       setIsGeneratingPDF(false);
-      alert("Error generating PDF. Make sure you're connected to the internet.");
+      alert("Error generating PDF. Please check your connection.");
     }
   };
 
@@ -578,21 +530,39 @@ function MovieSearchApp() {
     }, 3000);
   };
 
+  // Get sorted/filtered movies
+  const getDisplayMovies = () => {
+    const moviesToDisplay = showFavorites ? favorites : movies;
+    
+    if (sortBy === 'year-desc') {
+      return [...moviesToDisplay].sort((a, b) => parseInt(b.Year) - parseInt(a.Year));
+    } else if (sortBy === 'year-asc') {
+      return [...moviesToDisplay].sort((a, b) => parseInt(a.Year) - parseInt(b.Year));
+    } else if (sortBy === 'title') {
+      return [...moviesToDisplay].sort((a, b) => a.Title.localeCompare(b.Title));
+    }
+    
+    return moviesToDisplay;
+  };
+
   return (
     <div className="app-container">
       <div className="header-section">
-        <h1>🎬 Movie Search App</h1>
+        <div className="header-content">
+          <h1>🎬 CineSearch</h1>
+          <p className="header-subtitle">Discover Your Next Favorite Film</p>
+        </div>
         <button onClick={toggleTheme} className="theme-toggle" title="Toggle Theme">
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
       </div>
-      <p className="tagline">Find Your All Favourite Movies in one place</p>
 
       <div className="search-container">
         <div className="search-box">
+          <span className="search-icon">🔍</span>
           <input 
             type="text"
-            placeholder="Search a movie.."
+            placeholder="Search for movies..."
             value={searchTerm} 
             onChange={handleInputChange}
             onKeyDown={(e) => {
@@ -643,12 +613,41 @@ function MovieSearchApp() {
         )}
       </div>
 
-      <div className="view-toggle">
+      <div className="controls-bar">
         <button
           onClick={() => setShowFavorites(!showFavorites)}
-          className="toggle-button">
-          {showFavorites ? 'Show Search Results' : `Show Favorites (${favorites.length})`}
+          className={`control-button ${showFavorites ? 'active' : ''}`}>
+          ❤️ Favorites {favorites.length > 0 && `(${favorites.length})`}
         </button>
+        
+        {!showFavorites && movies.length > 0 && (
+          <>
+            <div className="sort-control">
+              <label>Sort by:</label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="relevance">Relevance</option>
+                <option value="year-desc">Year (Newest)</option>
+                <option value="year-asc">Year (Oldest)</option>
+                <option value="title">Title (A-Z)</option>
+              </select>
+            </div>
+            
+            <div className="view-toggle">
+              <button 
+                className={viewMode === 'grid' ? 'active' : ''}
+                onClick={() => setViewMode('grid')}
+                title="Grid View">
+                ▦
+              </button>
+              <button 
+                className={viewMode === 'list' ? 'active' : ''}
+                onClick={() => setViewMode('list')}
+                title="List View">
+                ☰
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {selectedMovie && (
@@ -662,45 +661,56 @@ function MovieSearchApp() {
             </button>
             
             <button 
-              className="pdf-download-button"
+              className="pdf-download-button-top"
               onClick={generateMoviePDF}
               disabled={isGeneratingPDF}
+              title="Download as PDF"
             >
               {isGeneratingPDF ? (
                 <>
                   <span className="spinner"></span>
-                  Generating PDF...
+                  <span className="pdf-text">Generating...</span>
                 </>
               ) : (
                 <>
-                  📄 Download as PDF
+                  <span className="pdf-icon">📄</span>
+                  <span className="pdf-text">Download PDF</span>
                 </>
               )}
             </button>
 
             <div className="movie-details">
-              <h2>{selectedMovie.Title}</h2>
-              {selectedMovie.Poster !== 'N/A' && (
-                <img
-                  src={selectedMovie.Poster}
-                  alt={selectedMovie.Title}
-                  className="detail-poster" 
-                />
-              )}
-              <div className="detail-info">
-                <p><strong>Year:</strong> {selectedMovie.Year}</p>
-                <p>
-                  <strong>Rating:</strong>
-                  <span className="fa fa-star checked"></span>
-                  {selectedMovie.imdbRating}/10
-                </p>
-                <p><strong>Genre:</strong> {selectedMovie.Genre}</p>
-                <p><strong>Runtime:</strong> {selectedMovie.Runtime}</p>
-                <p><strong>Director:</strong> {selectedMovie.Director}</p>
-                <p><strong>Cast:</strong> {selectedMovie.Actors}</p>
+              <div className="movie-header">
+                {selectedMovie.Poster !== 'N/A' && (
+                  <img
+                    src={selectedMovie.Poster}
+                    alt={selectedMovie.Title}
+                    className="detail-poster" 
+                  />
+                )}
+                <div className="movie-info-section">
+                  <h2>{selectedMovie.Title}</h2>
+                  <div className="movie-meta">
+                    <span className="meta-item">
+                      <strong>Year:</strong> {selectedMovie.Year}
+                    </span>
+                    <span className="meta-item">
+                      <strong>Rating:</strong> ⭐ {selectedMovie.imdbRating}/10
+                    </span>
+                    <span className="meta-item">
+                      <strong>Runtime:</strong> {selectedMovie.Runtime}
+                    </span>
+                  </div>
+                  <div className="detail-info">
+                    <p><strong>Genre:</strong> {selectedMovie.Genre}</p>
+                    <p><strong>Director:</strong> {selectedMovie.Director}</p>
+                    <p><strong>Cast:</strong> {selectedMovie.Actors}</p>
+                  </div>
+                </div>
               </div>
+              
               <div className="plot-section">
-                <h3>Details:</h3>
+                <h3>Plot Summary</h3>
                 <p>{selectedMovie.Plot}</p>
               </div>
             </div>
@@ -712,28 +722,38 @@ function MovieSearchApp() {
         {(showFavorites ? favorites.length > 0 : movies.length > 0) && (
           <p className="results-count">
             {showFavorites
-              ? `${favorites.length} favorite movies`
-              : `Found ${totalResults} results - Showing page ${currentPage} of ${totalPages}`
+              ? `${favorites.length} favorite ${favorites.length === 1 ? 'movie' : 'movies'}`
+              : `Found ${totalResults} results - Page ${currentPage} of ${totalPages}`
             }
           </p>
         )}
+        
         {showFavorites && favorites.length === 0 && (
-          <p className="no-favorites">No favorite ❤️ movies yet!!</p>
+          <div className="empty-state">
+            <div className="empty-icon">❤️</div>
+            <h3>No Favorites Yet</h3>
+            <p>Start adding movies to your favorites by clicking the heart icon!</p>
+          </div>
         )}
 
-        <div className="movie-list">
-          {(showFavorites ? favorites : movies).map((movie) => (
+        <div className={`movie-list ${viewMode}`}>
+          {getDisplayMovies().map((movie) => (
             <div 
               key={movie.imdbID}
               className="movie-item"
               onClick={() => getMovieDetails(movie.imdbID)}
             >
-              {movie.Poster !== "N/A" && (
+              {movie.Poster !== "N/A" ? (
                 <img
                   src={movie.Poster}
                   alt={movie.Title}
                   className="movie-poster" 
                 />
+              ) : (
+                <div className="no-poster">
+                  <span>🎬</span>
+                  <p>No poster</p>
+                </div>
               )}
 
               <button 
@@ -741,7 +761,8 @@ function MovieSearchApp() {
                   e.stopPropagation();
                   toggleFavorite(movie);
                 }}
-                className="heart-button"
+                className={`heart-button ${isFavorite(movie.imdbID) ? 'active' : ''}`}
+                title={isFavorite(movie.imdbID) ? 'Remove from favorites' : 'Add to favorites'}
               >
                 {isFavorite(movie.imdbID) ? '❤️' : '🤍'}
               </button>
@@ -761,7 +782,7 @@ function MovieSearchApp() {
               disabled={currentPage === 1}
               className="page-button"
             >
-              Previous
+              ← Previous
             </button>
             <span className="page-info">
               Page {currentPage} of {totalPages}
@@ -771,7 +792,7 @@ function MovieSearchApp() {
               disabled={currentPage === totalPages}
               className="page-button"
             >
-              Next
+              Next →
             </button>
           </div>
         )}
