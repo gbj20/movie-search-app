@@ -1359,6 +1359,7 @@ body.light ::-webkit-scrollbar-thumb {
 body.light .search-input {
     color: #0f172a;
 }
+
 body.dark .search-input {
     color: #010506;
 }
